@@ -1,2 +1,2 @@
 # ForHPCP
-Contain the codes that will be runned on the HPCP 
+Contains the codes that will be runned on the CHPC
