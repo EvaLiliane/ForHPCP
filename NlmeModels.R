@@ -1,34 +1,33 @@
 rm(list=ls(all=T))
-library(zoo)
-library(longitudinal)
 library(foreign)
 library(nlme) 
-library(plyr) 
-library(lattice)
-#library(lme4)
 
-library(mgcv) 
-library(ggplot2) 
-library(reshape2)
 setwd("/home/evaliliane/Documents/PhD/Codes")
+
+# Arguments 
+args <- commandArgs(TRUE) # Should be 4 arguments.
+
+if(length(args) == 0){
+  print("No arguments supplied.")
+  ##supply default values
+  infile <- "/home/evaliliane/Documents/PhD/Codes/NewData/CD4Cat_Adults2015-04-20.csv"
+  outfile <- "AdultsModels.csv"  
+  outfig <- "Adults"
+} else {
+  infile <- eval( parse(text=args[1]))
+  outfile <- eval( parse(text=args[2]))
+  outfig <- eval( parse(text=args[3]))
+}
 
 # Read in the two children dataset
 #addata <- read.csv("/home/evaliliane/Documents/PhD/Codes/NewData/CD4Cat_Adults2015-04-20.csv")
-chdata <- read.csv("/home/evaliliane/Documents/PhD/Codes/NewData/CD4Cat_Children2015-04-20.csv")
+chdata <- read.csv(infile, header = T)
 # str(chdata)
 # rel.columns <- c("patient", "diff", "zscore", "lab_v","height","weight","viral", "fhv_who_stage", "gender")
 # ddat2red <- chdata[chdata$base == 1, c("patient", "height","weight","viral", "fhv_stage_who", "gender")]
 # names(ddat2red) <- c("patient", "baseheight","baseweight","baseviral", "basefhv_stage_who", "basegender")
                    
                    
-
-# Replacing small neg zscores by -12
-chdata$zscore[chdata$zscore < -10] <- -10
-
-# Removing row with TOFU > 15
-chdata <- chdata[chdata$diff < 5476,]
-dat <- chdata[,c(2,35,44,48,50)]
-dat <- dat[!(is.na(dat$z.categ)),]
 
 # Select a subgroup of people
 useSubset <- T
@@ -38,10 +37,7 @@ subselect <- function(addata,n){
   addata <- addata[addata$patient %in% pids.to.run1,] 
   return(addata)
 }
-datt <- subselect(dat, 1000)
-
-#subchdata <- dat
-
+datt <- subselect(chdata, 500)
 
 currentDate <- Sys.Date()
 
@@ -52,14 +48,23 @@ currentDate <- Sys.Date()
 
 # ===================== Children per CD4 Categories ==========================
 
-testchdata <- datt #[addata$suppress == 1,]      #subselect(addata,2000)
-nn <- nlevels(testchdata$z.categ)
-mydataa <- groupedData(lab_v ~ diff | z.categ/patient, data = testchdata,order.groups=F) # Only On-ART  period
+# testchdata <- datt #[addata$suppress == 1,]      #subselect(addata,2000)
+# nn <- nlevels(testchdata$z.categ)
+mydataa <- groupedData(lab_v ~ diff | patient, data = datt,order.groups=F) # Only On-ART  period
 
 # Order the data and get intial values for the parameter estimates
-mydataa <- mydataa[order(mydataa$z.categ, mydataa$patient,mydataa$diff),]  
-# model1<-nls(zscore ~ SSasymp(diff,Asym,R0,lrc), data=mydataa,na.action="na.omit",
-#               start=c(Asym=-2,R0=-3,lrc=-5), control = nls.control(maxiter = 50, tol = 1e-05, minFactor = 1/4096,
+mydataa <- mydataa[order(mydataa$patient,mydataa$diff),] 
+
+system.time(  model1<-nls(lab_v ~ (K/Q) * ( (1 + exp(-s*diff)/(Q - 1) )/(1 + exp(-r*diff)*z0 /(K - z0)) ), 
+                          data= datt, na.action="na.omit",
+                          start=c(K= 5.4, Q= 0.8, r =0.5, s =1.1, z0 =1.2) )  )
+
+
+model1<-nls(lab_v ~ (K/Q) * ( (1 + exp(-s*diff)/(Q - 1) )/(1 + exp(-r*diff)*z0 /(K - z0)) ), 
+            data= datt, na.action="na.omit",
+              start=c(K= 5, Q= 1, r =0.5, s =1, z0 =1) )
+#             , 
+#             control = nls.control(maxiter = 50, tol = 1e-05, minFactor = 1/4096,
 #                                                                    printEval = FALSE, warnOnly = FALSE)) 
 
 

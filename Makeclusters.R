@@ -1,32 +1,42 @@
 rm(list = ls())
 
+# Arguments 
+args <- commandArgs(TRUE) # Should be 4 arguments.
+
+if(length(args) == 0){
+  print("No arguments supplied.")
+  ##supply default values
+  infile <- "/home/evaliliane/Documents/PhD/HPCP/Output/ChildrenIndFitData.csv"
+  outfile <- "ChildrenClusters.csv"  
+  outfig <- "Children"
+} else {
+  infile <- eval( parse(text=args[1]))
+  outfile <- eval( parse(text=args[2]))
+  outfig <- eval( parse(text=args[3]))
+}
+
 # Read data in
-#indout <- read.csv("~/Documents/PhD/Codes/IndividualData10-New.csv")
-plot(indout)
+indout <- read.csv(infile, header = T)
+#plot(indout)
 
+setwd("/home/evaliliane/Documents/PhD/HPCP/Output")
 
-setwd("/home/evaliliane/Documents/PhD/Codes/IndMod")
-
-png("NewScatterPlot_Estimates.png", width = 800, height = 600)
-plot(indout[3:6], main="Scatterplot of Estimated Parameters")
+namefig1 <- paste("NewScatterPlot_Estimates_",outfig,".png",sep="")
+png(namefig1, width = 800, height = 600)
+plot(indout[3:8], main="Scatterplot of Estimated Parameters")
 dev.off()
 
-png("NewBoxPlot_Estimates.png", width = 800, height = 600)
-boxplot(indout[3:6], main="Boxplot of Estimated Parameters")
+namefig2 <- paste("NewBoxPlot_Estimates_",outfig,".png",sep="")
+png(namefig2, width = 800, height = 600)
+boxplot(indout[3:8], main="Boxplot of Estimated Parameters")
 dev.off()
-
-
-
-pat <- dat$patient
-newtest <- mydata[mydata$patient %in% pat,]
-plot(newtest)
 
 ######################### CLUSTERS ########################################################################
 # ----------------------------------------
 # HC clustering. 
 # ----------------------------------------
 # It is defined to work on a large dataset. 
-d <- dist(as.matrix(indout[1:2]))
+d <- dist(as.matrix(indout[,c("patient","RSS")]))
 system.time(hc <- hclust(d, "centroid") )
 
 # # Look at the plot to choose number of patient
@@ -40,3 +50,8 @@ cutree(hc, h = ) # cut tree into k clusters
 # # Draw dendogram with red borders around the k clusters
 # rect.hclust(hc, k=3, border="red") 
 # # divide rows into k clusters
+
+
+library(cluster)
+pam(indout[,c("patient","RSS")])
+silhouette(hc)

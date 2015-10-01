@@ -4,6 +4,24 @@ rm(list = ls())
 library(nlme)
 library(pbdDEMO)
 
+# Arguments 
+args <- commandArgs(TRUE) # Should be 4 arguments.
+
+if(length(args) == 0){
+  print("No arguments supplied.")
+  ##supply default values
+  infile <- "/home/evaliliane/Documents/PhD/Codes/NewData/CD4Cat_Children2015-04-20.csv"
+  outfile <- "ChildrenIndout.csv"  
+  n <- 5
+  m <- 5
+} else{
+  infile <- eval( parse(text=args[1]))
+  outfile <- eval( parse(text=args[2]))
+  n <- eval( parse(text=args[3]))
+  m <- eval( parse(text=args[4]))
+}
+
+
 # Initialize pbdMPI
 init()
 .comm.size <- comm.size()
@@ -43,11 +61,9 @@ negloglkhd <- function(parms,y) {   ## Rosenbrock Banana function
   
   if( K == z0){
     print( "negloglkhd cannot be evaluated with given parameters: K = z0" )
-  }  
-  else if (Q == 1){
+  } else if (Q == 1){
     print( "negloglkhd cannot be evaluated with given parameter: Q = 1" )
-  }  
-  else {
+  } else {
     #fx <- yy - ( (K*z0*(Q-1)/Q*(K-z0))*(exp((r - s)*tim) + exp(s*tim)/(Q - 1))/(1 + exp(r*tim)*z0 /(K - z0)) )
     fx <- yy - ( (K/Q) * ( (1 + exp(-s*tim)/(Q - 1) )/(1 + exp(-r*tim)*z0 /(K - z0)) ) ) 
     return( (sum(fx))^2 )
@@ -125,36 +141,43 @@ divind <- function(data,n,m){
 ########################################################################
 
 # Read Data
-chdata <- read.csv("/home/evaliliane/Documents/PhD/Codes/NewData/CD4Cat_Children2015-04-20.csv")
+chdata <- read.csv(infile, header = T)
+# test <- read.csv("/home/evaliliane/Documents/PhD/Codes/NewData/CD4Cat_Children2015-04-20.csv")
 
 # Removing row with TOFU > 15
 chdata <- chdata[chdata$diff < 5476,]
-dat <- chdata[,c(2,44,35,49)]
+print(dim(chdata))
+dat <- chdata[,c("patient", "lab_v", "diff", "cd4a.categ")]
 dat <- dat[!(is.na(dat$cd4a.categ)),]
 dat <- dat[!(is.na(dat$lab_v)),]
 dat <- dat[!(is.na(dat$patient)),]
 dat <- dat[!(is.na(dat$diff)),]
+print(dim(chdata))
 
 # Order the dataframe and run the individual fits with modified function.
 mydata <- groupedData(lab_v ~ diff | patient, data = dat ,order.groups=F)  
 
 ##########################t## MLE ####################################################
-
+# TO BE REMOVED before running on CHPC
 # Test small sample
-optdata <- subselect(mydata,20)
+optdata <- subselect(mydata,100)
+# set path
+setwd("/home/evaliliane/Documents/PhD/HPCP/Output")
+# getwd()
+# Run sample/full children dataset and save output
+#   optdata/chdata
+system.time(mpindout <- mpidivind(optdata,5,5))       
+#system.time(indout <- divind(optdata,5,5))
 
-setwd("/home/evaliliane/Documents/PhD/Codes")
+# Comparing the two outputs (Only for a small subset/sample)
+# ggplot(indout, aes(novis,log(RSS))) + geom_point(aes(colour = patient, size = 8)) + 
+#             ggtitle("Serial computation") + 
+#             theme(plot.title = element_text(lineheight = 1, face = "bold"))
+# ggplot(mpindout, aes(novis,log(RSS))) + geom_point(aes(colour = patient, size = 8)) + 
+#               ggtitle("Parallel computation") + 
+#               theme(plot.title = element_text(lineheight = 1, face = "bold"))
 
-# Run full children dataset and save output
-system.time(mpindout <- mpidivind(optdata,5,5))
-system.time(indout <- divind(optdata,5,5))
-
-# 
-# 
-# system.time(indout2 <- divind(optdata,5,5))
-# #indout <- divind(mydata,10)
-# 
-# 
-# write.csv(indout, file = "IndividualData10-New.csv")
+# Save dataset 
+write.csv(mpindout, file = outfile)
 
 finalize()
